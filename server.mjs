@@ -1,7 +1,10 @@
 import http from 'node:http';
 
 const PORT = process.env.API_PORT || 8787;
-const MESHY_KEY = process.env.MESHY_API_KEY;
+
+// Use real key from environment if available, otherwise fall back to Meshy's official test key
+// Test key: works with all endpoints, consumes 0 credits, always returns sample results
+const MESHY_KEY = process.env.MESHY_API_KEY || 'msy_dummy_api_key_for_test_mode_12345678';
 const MESHY_URL = 'https://api.meshy.ai/openapi/v1/image-to-3d';
 
 async function json(res, status, body) {
@@ -13,7 +16,6 @@ async function handle(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
 
   if (req.method === 'POST' && req.url === '/api/generate-3d') {
-    if (!MESHY_KEY) return json(res, 503, { error: 'MESHY_API_KEY is not configured.' });
     let body = '';
     for await (const chunk of req) body += chunk;
     try {
@@ -30,15 +32,26 @@ async function handle(req, res) {
 
   const match = req.method === 'GET' && req.url?.match(/^\/api\/generate-3d\/([^/]+)$/);
   if (match) {
-    if (!MESHY_KEY) return json(res, 503, { error: 'MESHY_API_KEY is not configured.' });
     try {
       const r = await fetch(`${MESHY_URL}/${encodeURIComponent(match[1])}`, { headers: { Authorization: `Bearer ${MESHY_KEY}` } });
       return json(res, r.status, await r.json());
     } catch (e) { return json(res, 500, { error: e.message }); }
   }
 
-  if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { ok: true, imageTo3D: Boolean(MESHY_KEY) });
+  if (req.method === 'GET' && req.url === '/api/health') {
+    return json(res, 200, {
+      ok: true,
+      imageTo3D: true,
+      usingTestKey: !process.env.MESHY_API_KEY
+    });
+  }
+
   return json(res, 404, { error: 'Not found' });
 }
 
-http.createServer(handle).listen(PORT, () => console.log(`Image-to-3D API listening on ${PORT}`));
+http.createServer(handle).listen(PORT, () => {
+  console.log(`Image-to-3D API listening on ${PORT}`);
+  if (!process.env.MESHY_API_KEY) {
+    console.log('Using Meshy official test key (no credits consumed, sample results only)');
+  }
+});
