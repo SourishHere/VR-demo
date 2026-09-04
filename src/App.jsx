@@ -1,12 +1,12 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, Sky } from '@react-three/drei';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import World from './components/World';
 import Dog from './components/Dog';
 
-function Player({ dogRef, onInteract }) {
-  const { camera } = require('@react-three/fiber').useThree();
+function Player({ onInteract }) {
+  const { camera } = useThree();
   const keys = useRef({});
 
   useEffect(() => {
@@ -23,7 +23,8 @@ function Player({ dogRef, onInteract }) {
     };
   }, [onInteract]);
 
-  require('@react-three/fiber').useFrame((_, delta) => {
+  useFrame((_, delta) => {
+    window.__worldCamera = camera;
     const speed = 4.8;
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -46,11 +47,9 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [started, setStarted] = useState(false);
 
-  const interact = () => {
-    if (!dogRef.current) return;
-    const camera = dogRef.current.userData.camera;
-    if (!camera) return;
-    const distance = camera.position.distanceTo(dogRef.current.position);
+  const interact = useCallback(() => {
+    if (!dogRef.current || !window.__worldCamera) return;
+    const distance = window.__worldCamera.position.distanceTo(dogRef.current.position);
     if (distance < 4.5) {
       dogRef.current.userData.react?.();
       setNotice('🐕 Woof! The dog noticed you.');
@@ -59,11 +58,11 @@ export default function App() {
       setNotice('Walk closer to the dog first.');
       window.setTimeout(() => setNotice(''), 1400);
     }
-  };
+  }, []);
 
   return (
     <main className="app">
-      <Canvas shadows camera={{ position: [0, 1.8, 8], fov: 70 }} onCreated={({ camera }) => { window.__worldCamera = camera; }}>
+      <Canvas shadows camera={{ position: [0, 1.8, 8], fov: 70 }}>
         <color attach="background" args={['#9bc8e8']} />
         <fog attach="fog" args={['#9bc8e8', 18, 65]} />
         <ambientLight intensity={1.1} />
@@ -72,7 +71,7 @@ export default function App() {
         <Suspense fallback={null}>
           <World />
           <Dog dogRef={dogRef} />
-          <Player dogRef={dogRef} onInteract={interact} />
+          <Player onInteract={interact} />
         </Suspense>
         <PointerLockControls onLock={() => setStarted(true)} />
       </Canvas>
@@ -82,9 +81,7 @@ export default function App() {
           <div className="badge">CODE2CREATE • MVP</div>
           <h1>Photo → Interactive<br /><span>3D World</span></h1>
           <p>Step into a generated world and interact with its animal.</p>
-          <button onClick={() => document.querySelector('canvas')?.requestPointerLock?.()}>
-            Enter World
-          </button>
+          <button onClick={() => document.querySelector('canvas')?.requestPointerLock?.()}>Enter World</button>
           <small>WASD to move • Mouse to look • E to interact</small>
         </section>
       )}
