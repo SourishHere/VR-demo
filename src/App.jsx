@@ -8,28 +8,16 @@ import Dog from './components/Dog';
 function Player({ onInteract }) {
   const { camera } = useThree();
   const keys = useRef({});
-
   useEffect(() => {
-    const down = (e) => {
-      keys.current[e.code] = true;
-      if (e.code === 'KeyE') onInteract();
-    };
-    const up = (e) => { keys.current[e.code] = false; };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
-    };
+    const down = e => { keys.current[e.code] = true; if (e.code === 'KeyE') onInteract(); };
+    const up = e => { keys.current[e.code] = false; };
+    addEventListener('keydown', down); addEventListener('keyup', up);
+    return () => { removeEventListener('keydown', down); removeEventListener('keyup', up); };
   }, [onInteract]);
-
   useFrame((_, delta) => {
     window.__worldCamera = camera;
-    const speed = 4.8;
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
+    const speed = 4.8, forward = new THREE.Vector3();
+    camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
     const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
     if (keys.current.KeyW) camera.position.addScaledVector(forward, speed * delta);
     if (keys.current.KeyS) camera.position.addScaledVector(forward, -speed * delta);
@@ -44,73 +32,45 @@ function Player({ onInteract }) {
 
 function bark() {
   try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(170, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(85, ctx.currentTime + 0.16);
-    gain.gain.setValueAtTime(0.001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.21);
+    const AudioCtx = window.AudioContext || window.webkitAudioContext, ctx = new AudioCtx();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(170, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(85, ctx.currentTime + .16);
+    gain.gain.setValueAtTime(.001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.22, ctx.currentTime + .015); gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .2);
+    osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .21);
   } catch {}
 }
 
 export default function App() {
-  const dogRef = useRef();
-  const [notice, setNotice] = useState('');
-  const [started, setStarted] = useState(false);
-
+  const dogRef = useRef(), fileRef = useRef();
+  const [notice, setNotice] = useState(''), [started, setStarted] = useState(false), [photo, setPhoto] = useState(null), [worldName, setWorldName] = useState('Forest Companion');
+  const notify = useCallback(text => { setNotice(text); setTimeout(() => setNotice(''), 1800); }, []);
   const interact = useCallback(() => {
     if (!dogRef.current || !window.__worldCamera) return;
-    const distance = window.__worldCamera.position.distanceTo(dogRef.current.position);
-    if (distance < 4.5) {
-      dogRef.current.userData.react?.();
-      bark();
-      setNotice('🐕 WOOF! The dog noticed you.');
-      window.setTimeout(() => setNotice(''), 1800);
-    } else {
-      setNotice('Walk closer to the dog first.');
-      window.setTimeout(() => setNotice(''), 1400);
-    }
-  }, []);
-
-  return (
-    <main className="app">
-      <Canvas shadows camera={{ position: [0, 1.8, 8], fov: 70 }}>
-        <color attach="background" args={['#9bc8e8']} />
-        <fog attach="fog" args={['#9bc8e8', 18, 65]} />
-        <ambientLight intensity={1.1} />
-        <directionalLight castShadow position={[8, 14, 6]} intensity={2.2} shadow-mapSize={[2048, 2048]} />
-        <Sky sunPosition={[100, 30, 20]} turbidity={8} rayleigh={1.5} />
-        <Suspense fallback={null}>
-          <World />
-          <Dog dogRef={dogRef} />
-          <Player onInteract={interact} />
-        </Suspense>
-        <PointerLockControls onLock={() => setStarted(true)} />
-      </Canvas>
-
-      {!started && (
-        <section className="start-card">
-          <div className="badge">CODE2CREATE • MVP</div>
-          <h1>Photo → Interactive<br /><span>3D World</span></h1>
-          <p>Step into a generated world and interact with its animal.</p>
-          <button onClick={() => document.querySelector('canvas')?.requestPointerLock?.()}>Enter World</button>
-          <small>WASD to move • Mouse to look • E to interact</small>
-        </section>
-      )}
-
-      <div className="hud">
-        <div className="brand">WORLD<span>LAB</span></div>
-        <div className="controls">W A S D &nbsp; MOVE &nbsp; • &nbsp; E &nbsp; INTERACT</div>
-      </div>
-      <div className="crosshair">+</div>
-      {notice && <div className="notice">{notice}</div>}
-    </main>
-  );
+    const d = window.__worldCamera.position.distanceTo(dogRef.current.position);
+    if (d < 4.5) { dogRef.current.userData.react?.(); bark(); notify('🐕 WOOF! Your companion noticed you.'); }
+    else notify('Walk closer to your companion first.');
+  }, [notify]);
+  const upload = e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    if (!f.type.startsWith('image/')) return notify('Please choose an image.');
+    const url = URL.createObjectURL(f); setPhoto(url); setWorldName(`${f.name.replace(/\.[^.]+$/, '')} • AI World`); notify('✨ Photo loaded — world ready.');
+  };
+  const enter = () => { setStarted(true); document.querySelector('canvas')?.requestPointerLock?.(); };
+  return <main className="app">
+    <Canvas shadows camera={{ position: [0, 1.8, 8], fov: 70 }}>
+      <color attach="background" args={['#9bc8e8']} /><fog attach="fog" args={['#9bc8e8', 18, 65]} />
+      <ambientLight intensity={1.1} /><directionalLight castShadow position={[8,14,6]} intensity={2.2} shadow-mapSize={[2048,2048]} /><Sky sunPosition={[100,30,20]} turbidity={8} rayleigh={1.5} />
+      <Suspense fallback={null}><World /><Dog dogRef={dogRef} /><Player onInteract={interact} /></Suspense><PointerLockControls onLock={() => setStarted(true)} />
+    </Canvas>
+    {!started && <section className="start-card">
+      <div className="badge">CODE2CREATE • PHOTO → WORLD</div><h1>Turn a photo into an<br/><span>interactive world.</span></h1>
+      <p>Upload an animal photo, enter its world, explore in first person and interact with your AI companion.</p>
+      <button className="secondary" onClick={() => fileRef.current?.click()}>📷 {photo ? 'Change Animal Photo' : 'Upload Animal Photo'}</button><input ref={fileRef} type="file" accept="image/*" onChange={upload} hidden/>
+      {photo && <div className="photo-preview"><img src={photo} alt="Uploaded animal"/><div><b>{worldName}</b><small>Scene generated • Companion ready</small></div></div>}
+      <button className="enter" onClick={enter}>Enter World →</button><small>WASD move • Mouse look • E interact</small>
+    </section>}
+    <div className="hud"><div className="brand">WORLD<span>LAB</span></div><div className="controls">WASD MOVE &nbsp; • &nbsp; E INTERACT &nbsp; • &nbsp; ESC EXIT</div></div>
+    <div className="crosshair">+</div>{notice && <div className="notice">{notice}</div>}
+    {started && <div className="photo-pill">{photo ? '📷 PHOTO WORLD' : '🌲 DEMO WORLD'} <span>•</span> {worldName}</div>}
+  </main>;
 }
