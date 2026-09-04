@@ -1,6 +1,4 @@
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
 
 const PORT = process.env.PORT || 5173;
 const MESHY_KEY = process.env.MESHY_API_KEY;
@@ -13,6 +11,7 @@ async function json(res, status, body) {
 
 async function handle(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
+
   if (req.method === 'POST' && req.url === '/api/generate-3d') {
     if (!MESHY_KEY) return json(res, 503, { error: 'MESHY_API_KEY is not configured.' });
     let body = '';
@@ -25,13 +24,21 @@ async function handle(req, res) {
         headers: { Authorization: `Bearer ${MESHY_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: imageBase64, enable_pbr: true })
       });
-      const data = await r.json();
-      return json(res, r.status, data);
+      return json(res, r.status, await r.json());
     } catch (e) { return json(res, 500, { error: e.message }); }
   }
+
+  const match = req.method === 'GET' && req.url?.match(/^\/api\/generate-3d\/([^/]+)$/);
+  if (match) {
+    if (!MESHY_KEY) return json(res, 503, { error: 'MESHY_API_KEY is not configured.' });
+    try {
+      const r = await fetch(`${MESHY_URL}/${encodeURIComponent(match[1])}`, { headers: { Authorization: `Bearer ${MESHY_KEY}` } });
+      return json(res, r.status, await r.json());
+    } catch (e) { return json(res, 500, { error: e.message }); }
+  }
+
   if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { ok: true, imageTo3D: Boolean(MESHY_KEY) });
   return json(res, 404, { error: 'Not found' });
 }
 
-const server = http.createServer(handle);
-server.listen(PORT, () => console.log(`API listening on ${PORT}`));
+http.createServer(handle).listen(PORT, () => console.log(`Image-to-3D API listening on ${PORT}`));
