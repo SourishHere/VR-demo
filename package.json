@@ -1,7 +1,7 @@
 {
   "name": "photo-interactive-3d-world",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "node server.mjs & vite --host 0.0.0.0",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@gradio/client": "^2.5.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.3.0",
     "three": "^0.180.0",
