@@ -17,7 +17,7 @@ export default function World() {
         [3, -3, .7], [-4, -7, .55], [8, -12, .8], [-8, -15, .6], [14, -5, .5]
       ].map((p, i) => <Rock key={i} position={[p[0], p[2] * .45, p[1]]} scale={p[2]} />)}
 
-      <pathway />
+      <Pathway />
     </>
   );
 }
@@ -52,7 +52,7 @@ function Rock({ position, scale = 1 }) {
   );
 }
 
-function pathway() {
+function Pathway() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .006, -16]}>
       <planeGeometry args={[5, 60]} />
