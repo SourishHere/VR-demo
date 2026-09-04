@@ -41,8 +41,6 @@ function bark() {
   } catch {}
 }
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 async function generate3D(file, onStage) {
   onStage('Reading your photo');
   const imageBase64 = await new Promise((resolve, reject) => {
@@ -52,25 +50,24 @@ async function generate3D(file, onStage) {
     reader.readAsDataURL(file);
   });
 
-  onStage('Sending image to 3D AI');
-  const create = await fetch('/api/generate-3d', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64 })
+  onStage('Sending image to Hunyuan3D');
+  const response = await fetch('/api/generate-3d', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64 })
   });
-  const created = await create.json();
-  if (!create.ok) throw new Error(created.error || '3D generation request failed');
-  const taskId = created.result;
-  if (!taskId) throw new Error('3D service did not return a task ID');
 
-  for (let i = 0; i < 60; i++) {
-    onStage(i < 4 ? 'Building your 3D companion' : `Generating 3D model • ${Math.min(99, 20 + i * 2)}%`);
-    await sleep(3000);
-    const statusResponse = await fetch(`/api/generate-3d/${taskId}`);
-    const status = await statusResponse.json();
-    if (!statusResponse.ok) throw new Error(status.error || 'Could not read generation status');
-    if (status.status === 'SUCCEEDED') return status.model_urls?.glb;
-    if (status.status === 'FAILED' || status.status === 'CANCELED') throw new Error(status.task_error?.message || '3D generation failed');
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`3D server returned HTTP ${response.status}`);
   }
-  throw new Error('Generation timed out. Try again.');
+
+  if (!response.ok) throw new Error(result.error || '3D generation failed');
+  if (!result.result) throw new Error('3D AI finished without returning a model.');
+  onStage('Loading your 3D companion');
+  return result.result;
 }
 
 export default function App() {
@@ -78,7 +75,7 @@ export default function App() {
   const [notice, setNotice] = useState(''), [started, setStarted] = useState(false);
   const [photo, setPhoto] = useState(null), [modelUrl, setModelUrl] = useState(null);
   const [worldName, setWorldName] = useState('Forest Companion'), [generating, setGenerating] = useState(false), [stage, setStage] = useState('');
-  const notify = useCallback(text => { setNotice(text); setTimeout(() => setNotice(''), 2200); }, []);
+  const notify = useCallback(text => { setNotice(text); setTimeout(() => setNotice(''), 3000); }, []);
 
   const interact = useCallback(() => {
     if (!animalRef.current || !window.__worldCamera) return;
@@ -90,15 +87,23 @@ export default function App() {
   const upload = async e => {
     const f = e.target.files?.[0]; if (!f) return;
     if (!f.type.startsWith('image/')) return notify('Please choose an image.');
-    setPhoto(URL.createObjectURL(f)); setWorldName(`${f.name.replace(/\.[^.]+$/, '')} • AI World`); setModelUrl(null); setGenerating(true);
+    setPhoto(URL.createObjectURL(f));
+    setWorldName(`${f.name.replace(/\.[^.]+$/, '')} • AI World`);
+    setModelUrl(null);
+    setGenerating(true);
+    setStage('Starting 3D generation…');
     try {
       const glb = await generate3D(f, setStage);
-      if (!glb) throw new Error('The AI finished without a GLB model.');
-      setModelUrl(glb); setStage('3D companion ready'); notify('✨ Your photo became a 3D companion!');
+      setModelUrl(glb);
+      setStage('3D companion ready');
+      notify('✨ Your photo became a 3D companion!');
     } catch (err) {
-      console.error(err); notify(err.message.includes('MESHY_API_KEY') ? 'Add your Meshy API key to .env first.' : err.message);
-      setStage('Generation unavailable');
-    } finally { setGenerating(false); }
+      console.error(err);
+      setStage('Generation failed');
+      notify(err?.message || '3D generation failed.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const enter = () => { setStarted(true); document.querySelector('canvas')?.requestPointerLock?.(); };
@@ -110,10 +115,10 @@ export default function App() {
     </Canvas>
     {!started && <section className="start-card">
       <div className="badge">CODE2CREATE • PHOTO → WORLD</div><h1>Turn a photo into an<br/><span>interactive world.</span></h1>
-      <p>Upload an animal photo and our 3D pipeline turns it into a companion you can explore with.</p>
+      <p>Upload an animal photo and our remote 3D AI turns it into a companion you can explore with.</p>
       <button className="secondary" disabled={generating} onClick={() => fileRef.current?.click()}>📷 {generating ? 'Generating 3D…' : photo ? 'Change Animal Photo' : 'Upload Animal Photo'}</button><input ref={fileRef} type="file" accept="image/*" onChange={upload} hidden/>
       {photo && <div className="photo-preview"><img src={photo} alt="Uploaded animal"/><div><b>{worldName}</b><small>{generating ? `⚙ ${stage}` : modelUrl ? '✓ Real 3D model generated' : `⚠ ${stage}`}</small></div></div>}
-      {generating && <div className="generation"><div className="spinner"/><b>{stage}</b><small>This can take a little while.</small></div>}
+      {generating && <div className="generation"><div className="spinner"/><b>{stage}</b><small>Remote GPU is building the 3D model. This can take a little while.</small></div>}
       <button className="enter" disabled={generating} onClick={enter}>Enter World →</button><small>WASD move • Mouse look • E interact</small>
     </section>}
     <div className="hud"><div className="brand">WORLD<span>LAB</span></div><div className="controls">WASD MOVE &nbsp; • &nbsp; E INTERACT &nbsp; • &nbsp; ESC EXIT</div></div>
