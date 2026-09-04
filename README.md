@@ -20,6 +20,33 @@ npm run dev -- --host 0.0.0.0
 
 Open the forwarded Vite port.
 
+## Meshy API Key Setup (Important)
+
+This project uses the Meshy Image-to-3D API.
+
+1. Copy the example env file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` and set your key:
+
+   **For testing / development (recommended first):**
+   ```
+   MESHY_API_KEY=msy_dummy_api_key_for_test_mode_12345678
+   ```
+   This is Meshy’s official test key. It works with all endpoints, uses **0 credits**, and always returns sample results. Perfect for coding and testing your integration.
+
+   **For real generations:**
+   - Create a Meshy account at https://www.meshy.ai
+   - Upgrade to Pro plan (API access is not available on Free)
+   - Go to Settings → API and create a real key
+   - Replace the value in `.env` with your real key
+
+3. Restart the server after changing the key so it picks up the new environment variable.
+
+> Never commit your real API key. Keep it only in `.env` (which should stay gitignored).
+
 ## Roadmap
 
 ### Phase 1 — Playable world
