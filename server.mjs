@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const PORT = process.env.PORT || 5173;
+const PORT = process.env.API_PORT || 8787;
 const MESHY_KEY = process.env.MESHY_API_KEY;
 const MESHY_URL = 'https://api.meshy.ai/openapi/v1/image-to-3d';
 
