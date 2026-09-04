@@ -42,6 +42,24 @@ function Player({ onInteract }) {
   return null;
 }
 
+function bark() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(170, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(85, ctx.currentTime + 0.16);
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.21);
+  } catch {}
+}
+
 export default function App() {
   const dogRef = useRef();
   const [notice, setNotice] = useState('');
@@ -52,7 +70,8 @@ export default function App() {
     const distance = window.__worldCamera.position.distanceTo(dogRef.current.position);
     if (distance < 4.5) {
       dogRef.current.userData.react?.();
-      setNotice('🐕 Woof! The dog noticed you.');
+      bark();
+      setNotice('🐕 WOOF! The dog noticed you.');
       window.setTimeout(() => setNotice(''), 1800);
     } else {
       setNotice('Walk closer to the dog first.');
